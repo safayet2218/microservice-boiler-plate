@@ -1,10 +1,9 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
-import { Order } from './order.entity';
+import { PrismaService } from './prisma.service';
 
 @Module({
   imports: [
@@ -12,21 +11,6 @@ import { Order } from './order.entity';
       isGlobal: true,
       envFilePath: '.env',
     }),
-    TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        type: 'mysql',
-        host: configService.get<string>('DB_HOST'),
-        port: configService.get<number>('DB_PORT'),
-        username: configService.get<string>('DB_USER'),
-        password: configService.get<string>('DB_PASSWORD'),
-        database: configService.get<string>('DB_NAME'),
-        entities: [Order],
-        synchronize: true,
-      }),
-      inject: [ConfigService],
-    }),
-    TypeOrmModule.forFeature([Order]),
     ClientsModule.registerAsync([
       {
         name: 'KAFKA_SERVICE',
@@ -48,6 +32,6 @@ import { Order } from './order.entity';
     ]),
   ],
   controllers: [OrdersController],
-  providers: [OrdersService],
+  providers: [OrdersService, PrismaService],
 })
 export class OrdersModule { }

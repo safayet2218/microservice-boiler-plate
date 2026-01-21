@@ -1,36 +1,40 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Product } from './product.entity';
+import { Injectable, OnModuleInit } from '@nestjs/common';
+import { PrismaService } from './prisma.service';
 
 @Injectable()
-export class ProductsService {
-  constructor(
-    @InjectRepository(Product)
-    private productRepository: Repository<Product>,
-  ) { }
+export class ProductsService implements OnModuleInit {
+  constructor(private prisma: PrismaService) { }
 
   async findAll() {
-    return this.productRepository.find();
+    return this.prisma.product.findMany();
   }
 
   async updateStock(productId: number, quantity: number) {
-    const product = await this.productRepository.findOne({ where: { id: productId } });
-    if (product) {
-      product.stock -= quantity;
-      return this.productRepository.save(product);
+    try {
+      return await this.prisma.product.update({
+        where: { id: productId },
+        data: {
+          stock: {
+            decrement: quantity,
+          },
+        },
+      });
+    } catch (e) {
+      console.error(`Failed to update stock for product ${productId}`, e);
     }
   }
 
   // Helper to seed some data
   async onModuleInit() {
-    const count = await this.productRepository.count();
+    const count = await this.prisma.product.count();
     if (count === 0) {
-      await this.productRepository.save([
-        { name: 'Laptop', price: 1200, stock: 10 },
-        { name: 'Mouse', price: 25, stock: 50 },
-        { name: 'Keyboard', price: 75, stock: 30 },
-      ]);
+      await this.prisma.product.createMany({
+        data: [
+          { name: 'Laptop', price: 1200, stock: 10 },
+          { name: 'Mouse', price: 25, stock: 50 },
+          { name: 'Keyboard', price: 75, stock: 30 },
+        ],
+      });
     }
   }
 }

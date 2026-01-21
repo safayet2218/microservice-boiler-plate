@@ -1,30 +1,32 @@
-import { Injectable, Inject } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Injectable, Inject, OnModuleInit } from '@nestjs/common';
 import { ClientKafka } from '@nestjs/microservices';
-import { Order } from './order.entity';
+import { PrismaService } from './prisma.service';
 import { CreateOrderDto, EventPatterns } from '@app/shared';
 
 @Injectable()
-export class OrdersService {
+export class OrdersService implements OnModuleInit {
   constructor(
-    @InjectRepository(Order)
-    private orderRepository: Repository<Order>,
+    private prisma: PrismaService,
     @Inject('KAFKA_SERVICE') private readonly kafkaClient: ClientKafka,
   ) { }
 
   async create(data: CreateOrderDto) {
-    const order = this.orderRepository.create(data);
-    const savedOrder = await this.orderRepository.save(order);
+    const order = await this.prisma.order.create({
+      data: {
+        userId: data.userId,
+        productId: data.productId,
+        quantity: data.quantity,
+      },
+    });
 
     // Emit Kafka event
     this.kafkaClient.emit(EventPatterns.ORDER_CREATED, {
-      orderId: savedOrder.id,
-      productId: savedOrder.productId,
-      quantity: savedOrder.quantity,
+      orderId: order.id,
+      productId: order.productId,
+      quantity: order.quantity,
     });
 
-    return savedOrder;
+    return order;
   }
 
   async onModuleInit() {

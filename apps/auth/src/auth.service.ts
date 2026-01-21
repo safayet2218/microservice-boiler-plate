@@ -1,47 +1,60 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { User } from './user.entity';
+import { PrismaService } from './prisma.service';
 import { RegisterDto, LoginDto } from '@app/shared';
 
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
+    private prisma: PrismaService,
     private jwtService: JwtService,
   ) { }
 
   async register(data: RegisterDto) {
     const hashedPassword = await bcrypt.hash(data.password, 10);
-    const user = this.userRepository.create({
-      ...data,
-      password: hashedPassword,
+    const user = await this.prisma.user.create({
+      data: {
+        ...data,
+        password: hashedPassword,
+      },
     });
-    const savedUser = await this.userRepository.save(user);
-    const { password, ...result } = savedUser;
+    const { password, ...result } = user;
     return result;
   }
 
   async login(data: LoginDto) {
-    console.log(data);
-    const user = await this.userRepository.findOne({ where: { email: data.email } });
-    if (user && (await bcrypt.compare(data.password, user.password))) {
-      const payload = { email: user.email, sub: user.id };
-      return {
-        access_token: this.jwtService.sign(payload),
-        user: { id: user.id, email: user.email, name: user.name },
-      };
+    try {
+      console.log('Login attempt for:', data.email);
+      const user = await this.prisma.user.findUnique({ where: { email: data.email } });
+
+      if (!user) {
+        console.log('User not found:', data.email);
+        return null;
+      }
+
+      console.log('User found, comparing passwords...');
+      const isMatch = await bcrypt.compare(data.password, user.password);
+      console.log('Password match:', isMatch);
+
+      if (isMatch) {
+        const payload = { email: user.email, sub: user.id };
+        return {
+          access_token: this.jwtService.sign(payload),
+          user: { id: user.id, email: user.email, name: user.name },
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error('Prisma Login Error:', error);
+      throw error;
     }
-    return null;
   }
 
   async validateUser(data: { token: string }) {
     try {
       const payload = this.jwtService.verify(data.token);
-      const user = await this.userRepository.findOne({ where: { id: payload.sub } });
+      const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
       if (user) {
         const { password, ...result } = user;
         return result;
