@@ -1,15 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { RpcException } from '@nestjs/microservices';
+import { RpcException, ClientProxy } from '@nestjs/microservices';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from './prisma.service';
-import { RegisterDto, LoginDto, throwRpcError } from '@app/shared';
+import { RegisterDto, LoginDto, throwRpcError, ServiceNames, MessagePatterns } from '@app/shared';
 
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    @Inject(ServiceNames.NOTIFICATIONS) private readonly notificationsClient: ClientProxy,
   ) { }
 
   async register(data: RegisterDto) {
@@ -29,6 +30,12 @@ export class AuthService {
         password: hashedPassword,
       },
     });
+
+    this.notificationsClient.emit(MessagePatterns.SEND_WELCOME_EMAIL, {
+      email: user.email,
+      name: user.name,
+    });
+
     const { password, ...result } = user;
     return result;
   }

@@ -1,13 +1,14 @@
 import { Injectable, Inject, OnModuleInit } from '@nestjs/common';
-import { ClientKafka, RpcException } from '@nestjs/microservices';
+import { ClientKafka, RpcException, ClientProxy } from '@nestjs/microservices';
 import { PrismaService } from './prisma.service';
-import { CreateOrderDto, EventPatterns, throwRpcError } from '@app/shared';
+import { CreateOrderDto, EventPatterns, throwRpcError, ServiceNames, MessagePatterns } from '@app/shared';
 
 @Injectable()
 export class OrdersService implements OnModuleInit {
   constructor(
     private prisma: PrismaService,
     @Inject('KAFKA_SERVICE') private readonly kafkaClient: ClientKafka,
+    @Inject(ServiceNames.NOTIFICATIONS) private readonly notificationsClient: ClientProxy,
   ) { }
 
   async create(data: CreateOrderDto) {
@@ -25,6 +26,12 @@ export class OrdersService implements OnModuleInit {
         orderId: order.id,
         productId: order.productId,
         quantity: order.quantity,
+      });
+
+      // Emit Notification event (RabbitMQ)
+      this.notificationsClient.emit(MessagePatterns.SEND_ORDER_CONFIRMATION, {
+        userId: data.userId,
+        orderId: order.id,
       });
 
       return order;
