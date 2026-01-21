@@ -34,3 +34,18 @@ export class CreateOrderDto {
     @IsNumber()
     userId: number;
 }
+
+export class CreateProductDto {
+    @IsString()
+    @IsNotEmpty()
+    name: string;
+
+    @IsNumber()
+    @IsPositive()
+    price: number;
+
+    @IsNumber()
+    @IsPositive()
+    stock: number;
+}
+

@@ -1,9 +1,16 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
+import { CreateProductDto } from '@app/shared';
 
 @Injectable()
 export class ProductsService implements OnModuleInit {
   constructor(private prisma: PrismaService) { }
+
+  async create(data: CreateProductDto) {
+    return this.prisma.product.create({
+      data,
+    });
+  }
 
   async findAll() {
     return this.prisma.product.findMany();

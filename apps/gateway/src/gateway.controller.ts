@@ -1,6 +1,6 @@
 import { Controller, Post, Body, Inject, Get, Logger, UseGuards, Req } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
-import { ServiceNames, MessagePatterns, RegisterDto, LoginDto, CreateOrderDto } from '@app/shared';
+import { ServiceNames, MessagePatterns, RegisterDto, LoginDto, CreateOrderDto, CreateProductDto } from '@app/shared';
 
 @Controller()
 export class GatewayController {
@@ -26,6 +26,11 @@ export class GatewayController {
   @Get('products')
   getProducts() {
     return this.productsClient.send(MessagePatterns.GET_PRODUCTS, {});
+  }
+
+  @Post('products')
+  createProduct(@Body() data: CreateProductDto) {
+    return this.productsClient.send(MessagePatterns.CREATE_PRODUCT, data);
   }
 
   @Post('orders')

@@ -12,6 +12,12 @@ export class ProductsController {
     return this.productsService.findAll();
   }
 
+  @MessagePattern(MessagePatterns.CREATE_PRODUCT)
+  async create(@Payload() data: any) {
+    return this.productsService.create(data);
+  }
+
+
   @EventPattern(EventPatterns.ORDER_CREATED)
   async handleOrderCreated(@Payload() data: any) {
     console.log('Order created event received in Products Service:', data);

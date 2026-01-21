@@ -521,6 +521,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.AuthService = void 0;
 const common_1 = __webpack_require__(/*! @nestjs/common */ "@nestjs/common");
 const jwt_1 = __webpack_require__(/*! @nestjs/jwt */ "@nestjs/jwt");
+const microservices_1 = __webpack_require__(/*! @nestjs/microservices */ "@nestjs/microservices");
 const bcrypt = __webpack_require__(/*! bcrypt */ "bcrypt");
 const prisma_service_1 = __webpack_require__(/*! ./prisma.service */ "./apps/auth/src/prisma.service.ts");
 let AuthService = class AuthService {
@@ -529,6 +530,15 @@ let AuthService = class AuthService {
         this.jwtService = jwtService;
     }
     async register(data) {
+        const existingUser = await this.prisma.user.findUnique({
+            where: { email: data.email },
+        });
+        if (existingUser) {
+            throw new microservices_1.RpcException({
+                message: 'Email already exists',
+                status: 409,
+            });
+        }
         const hashedPassword = await bcrypt.hash(data.password, 10);
         const user = await this.prisma.user.create({
             data: {
@@ -707,6 +717,7 @@ var MessagePatterns;
     MessagePatterns["REGISTER"] = "register";
     MessagePatterns["VALIDATE_USER"] = "validate_user";
     MessagePatterns["GET_PRODUCTS"] = "get_products";
+    MessagePatterns["CREATE_PRODUCT"] = "create_product";
     MessagePatterns["CREATE_ORDER"] = "create_order";
 })(MessagePatterns || (exports.MessagePatterns = MessagePatterns = {}));
 
@@ -731,7 +742,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.CreateOrderDto = exports.LoginDto = exports.RegisterDto = void 0;
+exports.CreateProductDto = exports.CreateOrderDto = exports.LoginDto = exports.RegisterDto = void 0;
 const class_validator_1 = __webpack_require__(/*! class-validator */ "class-validator");
 class RegisterDto {
 }
@@ -779,6 +790,24 @@ __decorate([
     (0, class_validator_1.IsNumber)(),
     __metadata("design:type", Number)
 ], CreateOrderDto.prototype, "userId", void 0);
+class CreateProductDto {
+}
+exports.CreateProductDto = CreateProductDto;
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], CreateProductDto.prototype, "name", void 0);
+__decorate([
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.IsPositive)(),
+    __metadata("design:type", Number)
+], CreateProductDto.prototype, "price", void 0);
+__decorate([
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.IsPositive)(),
+    __metadata("design:type", Number)
+], CreateProductDto.prototype, "stock", void 0);
 
 
 /***/ }),

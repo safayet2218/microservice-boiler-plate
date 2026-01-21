@@ -14,5 +14,6 @@ export enum MessagePatterns {
     REGISTER = 'register',
     VALIDATE_USER = 'validate_user',
     GET_PRODUCTS = 'get_products',
+    CREATE_PRODUCT = 'create_product',
     CREATE_ORDER = 'create_order',
 }
