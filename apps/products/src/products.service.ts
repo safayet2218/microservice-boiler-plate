@@ -1,15 +1,20 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
+import { RpcException } from '@nestjs/microservices';
 import { PrismaService } from './prisma.service';
-import { CreateProductDto } from '@app/shared';
+import { CreateProductDto, throwRpcError } from '@app/shared';
 
 @Injectable()
 export class ProductsService implements OnModuleInit {
   constructor(private prisma: PrismaService) { }
 
   async create(data: CreateProductDto) {
-    return this.prisma.product.create({
-      data,
-    });
+    try {
+      return await this.prisma.product.create({
+        data,
+      });
+    } catch (error) {
+      throwRpcError('Could not create product', 400);
+    }
   }
 
   async findAll() {
@@ -18,6 +23,18 @@ export class ProductsService implements OnModuleInit {
 
   async updateStock(productId: number, quantity: number) {
     try {
+      const product = await this.prisma.product.findUnique({
+        where: { id: productId },
+      });
+
+      if (!product) {
+        throwRpcError('Product not found', 404);
+      }
+
+      if (product.stock < quantity) {
+        throwRpcError('Insufficient stock', 400);
+      }
+
       return await this.prisma.product.update({
         where: { id: productId },
         data: {
@@ -26,8 +43,9 @@ export class ProductsService implements OnModuleInit {
           },
         },
       });
-    } catch (e) {
-      console.error(`Failed to update stock for product ${productId}`, e);
+    } catch (error) {
+      if (error instanceof RpcException) throw error;
+      throwRpcError(`Failed to update stock for product ${productId}`, 500);
     }
   }
 

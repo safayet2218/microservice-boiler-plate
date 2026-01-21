@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { RpcException } from '@nestjs/microservices';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from './prisma.service';
-import { RegisterDto, LoginDto } from '@app/shared';
+import { RegisterDto, LoginDto, throwRpcError } from '@app/shared';
 
 @Injectable()
 export class AuthService {
@@ -18,10 +18,7 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new RpcException({
-        message: 'Email already exists',
-        status: 409, // Conflict
-      });
+      throwRpcError('Email already exists', 409);
     }
 
     const hashedPassword = await bcrypt.hash(data.password, 10);
@@ -38,29 +35,25 @@ export class AuthService {
 
   async login(data: LoginDto) {
     try {
-      console.log('Login attempt for:', data.email);
       const user = await this.prisma.user.findUnique({ where: { email: data.email } });
 
       if (!user) {
-        console.log('User not found:', data.email);
-        return null;
+        throwRpcError('User does not exist with this email', 404);
       }
 
-      console.log('User found, comparing passwords...');
       const isMatch = await bcrypt.compare(data.password, user.password);
-      console.log('Password match:', isMatch);
-
-      if (isMatch) {
-        const payload = { email: user.email, sub: user.id };
-        return {
-          access_token: this.jwtService.sign(payload),
-          user: { id: user.id, email: user.email, name: user.name },
-        };
+      if (!isMatch) {
+        throwRpcError('Invalid email or password', 401);
       }
-      return null;
+
+      const payload = { email: user.email, sub: user.id };
+      return {
+        access_token: this.jwtService.sign(payload),
+        user: { id: user.id, email: user.email, name: user.name },
+      };
     } catch (error) {
-      console.error('Prisma Login Error:', error);
-      throw error;
+      if (error instanceof RpcException) throw error;
+      throwRpcError('Internal error during login', 500);
     }
   }
 
@@ -68,13 +61,14 @@ export class AuthService {
     try {
       const payload = this.jwtService.verify(data.token);
       const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
-      if (user) {
-        const { password, ...result } = user;
-        return result;
+      if (!user) {
+        throwRpcError('User session invalid', 401);
       }
+      const { password, ...result } = user;
+      return result;
     } catch (e) {
-      return null;
+      if (e instanceof RpcException) throw e;
+      throwRpcError('Unauthorized access', 401);
     }
-    return null;
   }
 }

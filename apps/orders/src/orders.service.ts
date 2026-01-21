@@ -1,7 +1,7 @@
 import { Injectable, Inject, OnModuleInit } from '@nestjs/common';
-import { ClientKafka } from '@nestjs/microservices';
+import { ClientKafka, RpcException } from '@nestjs/microservices';
 import { PrismaService } from './prisma.service';
-import { CreateOrderDto, EventPatterns } from '@app/shared';
+import { CreateOrderDto, EventPatterns, throwRpcError } from '@app/shared';
 
 @Injectable()
 export class OrdersService implements OnModuleInit {
@@ -11,22 +11,27 @@ export class OrdersService implements OnModuleInit {
   ) { }
 
   async create(data: CreateOrderDto) {
-    const order = await this.prisma.order.create({
-      data: {
-        userId: data.userId,
-        productId: data.productId,
-        quantity: data.quantity,
-      },
-    });
+    try {
+      const order = await this.prisma.order.create({
+        data: {
+          userId: data.userId,
+          productId: data.productId,
+          quantity: data.quantity,
+        },
+      });
 
-    // Emit Kafka event
-    this.kafkaClient.emit(EventPatterns.ORDER_CREATED, {
-      orderId: order.id,
-      productId: order.productId,
-      quantity: order.quantity,
-    });
+      // Emit Kafka event
+      this.kafkaClient.emit(EventPatterns.ORDER_CREATED, {
+        orderId: order.id,
+        productId: order.productId,
+        quantity: order.quantity,
+      });
 
-    return order;
+      return order;
+    } catch (e) {
+      if (e instanceof RpcException) throw e;
+      throwRpcError('Could not process order', 400);
+    }
   }
 
   async onModuleInit() {
